@@ -1,9 +1,0 @@
-# Cloudflare Pages Redirects & Reverse Proxy Configuration
-# Redirect api, websocket, and static resource paths to the Render backend service instance dynamically
-
-/api/*     https://chatworld-backend.onrender.com/api/:splat     200
-/ws/*      wss://chatworld-backend.onrender.com/ws/:splat       200
-/static/*  https://chatworld-backend.onrender.com/static/:splat  200
-
-# Serve SPA index.html for all other routing requests (React Router handles them)
-/*         /index.html   200

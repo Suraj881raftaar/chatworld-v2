@@ -1,7 +1,7 @@
 # Chat World v2
 
 [![CI Status](https://img.shields.io/badge/CI-Pending-lightgrey?style=for-the-badge)](https://github.com/Suraj881raftaar/chatworld-v2)
-[![React 19](https://img.shields.io/badge/React-19.0-blue?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
+[![React 18.3.1](https://img.shields.io/badge/React-18.3.1-blue?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
@@ -18,19 +18,19 @@ Chat World v2 is a flagship, enterprise-grade real-time chat application built u
 *   **Dual Database Dialect Engine:** SQLite database support for rapid local development and high-performance PostgreSQL 16+ for production environments.
 *   **Secure Sessioning:** Authentication using JWT access/refresh token rotation. Access tokens are stored in-memory, and refresh tokens are stored in secure `HttpOnly` cookie storage.
 *   **Role-Based Access Control (RBAC):** Built-in support for standard `User` and administrative `Admin` permissions.
-*   **Modern Interface:** Dark-themed responsive design built with **React 19**, styled with **Tailwind CSS**, and optimized for screen readers and keyboard navigation (WCAG 2.1 compliance).
+*   **Modern Interface:** Dark-themed responsive design built with **React 18.3.1**, styled with **Tailwind CSS**, and optimized for screen readers and keyboard navigation (WCAG 2.1 compliance).
 
 ---
 
 ## 🛠️ Technology Stack
 
-*   **Frontend:** React 19, TypeScript, Vite, Tailwind CSS, TanStack Query (v5), Zustand, Axios
+*   **Frontend:** React 18.3.1, TypeScript, Vite, Tailwind CSS, TanStack Query (v5), Zustand, Axios
 *   **Backend:** FastAPI (Python 3.11+), Uvicorn, SQLAlchemy 2.0 ORM, Alembic migrations, Loguru
 *   **Database:** PostgreSQL 16+ (Production), SQLite (Development)
 *   **Caching/Broker:** Redis (WS Pub/Sub & REST Caching)
 *   **Containerization:** Docker & Docker Compose
 *   **CI/CD:** GitHub Actions
-*   **Hosting/Edge:** Cloudflare Pages (Frontend) & VPS Container (Backend/Database)
+*   **Hosting/Edge:** Render Web Service (FastAPI serves compiled React SPA and REST/WS API endpoints on a single URL)
 
 ---
 
@@ -102,22 +102,22 @@ Once initialized, access:
    alembic upgrade head
    ```
 
-### 2. 🐍 Render Setup (FastAPI Backend)
+### 2. 🚀 Render Setup (Unified Web Service)
 1. Register on [Render](https://render.com/) and connect your GitHub repository.
-2. Create a new **Blueprint** service instance. Render will automatically read the `render.yaml` specification located in the repository root.
-3. Configure the following environment variables on the Render Dashboard:
-   - `DATABASE_URL`: Your async Neon PostgreSQL connection string.
+2. Create a new **Web Service** or use a **Blueprint** service instance. Render will automatically read the `render.yaml` specification located in the repository root.
+3. The build command will execute:
+   ```bash
+   cd frontend && npm ci && npm run build && cd .. && mkdir -p backend/app/static && cp -r frontend/dist/* backend/app/static/ && pip install -r backend/requirements.txt
+   ```
+4. The start command will execute:
+   ```bash
+   cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+   ```
+5. Configure the following environment variables on the Render Dashboard:
+   - `ENVIRONMENT`: `production`
+   - `DATABASE_URL`: Your async Neon PostgreSQL connection string (standard `postgres://` gets converted to `postgresql+asyncpg://` automatically).
    - `SECRET_KEY`: A secure random 64-character secret key.
    - `JWT_SECRET`: A secure key used for signing JWT tokens.
-   - `CORS_ORIGINS`: Allowed origins (e.g. `["https://chatworld-v2.pages.dev"]`).
-4. Click **Deploy**. Render will build and start the web server from the `backend/` directory automatically.
-
-### 3. ☁️ Cloudflare Pages Setup (React Frontend)
-1. Sign up on [Cloudflare Pages](https://pages.cloudflare.com/) and connect your GitHub account.
-2. Create a new Pages Project, and set the root directory of the build to `frontend`.
-3. Configure the following build settings:
-   - **Framework Preset:** None (Vite/React).
-   - **Build Command:** `npm run build`
-   - **Build Output Directory:** `dist`
-4. Deploy the application. The router redirects in `public/_redirects` will automatically proxy all frontend `/api/*` and `/ws/*` calls to your Render backend edge.
+   - `CORS_ORIGINS`: `["*"]`
+6. Click **Deploy**. Render will build the React SPA, copy the compiled assets into the backend, and start the FastAPI service serving both client and API on a single URL.
 

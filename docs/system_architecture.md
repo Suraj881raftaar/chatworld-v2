@@ -23,7 +23,7 @@ graph TD
     subgraph External Agencies (Infrastructure)
         DB[(PostgreSQL / SQLite Database)]
         Cache[(Redis Cache & Pub/Sub)]
-        Cloudflare[Cloudflare Pages / Tunnel]
+        
         Storage[S3 Media Storage]
     end
 
@@ -112,10 +112,10 @@ async def domain_exception_handler(request: Request, exc: DomainException):
 
 ---
 
-### 5. Deployment Architecture (Cloudflare + Docker)
+### 5. Deployment Architecture (Render + Docker)
 
-*   **Cloudflare Pages:** Serves static frontend client build (HTML/JS/CSS). Uses Cloudflare routing rules to proxy `/api/*` and `/ws/*` requests to the Backend VPS.
+*   **Render Web Service:** Serves static frontend client build (index.html/JS/CSS assets) under `/` and `/assets/*`, and handles WebSocket/REST API requests under `/api/v1/*` on a single URL domain.
 *   **Docker Compose Configuration:**
-    *   `web` service (FastAPI application powered by Gunicorn/Uvicorn workers).
-    *   `db` service (PostgreSQL instance mapping storage to a host volume).
-    *   `redis` service (Redis caching broker for websocket events propagation).
+    *   `web` service (FastAPI application serving frontend and backend concurrently).
+    *   `db` service (PostgreSQL database instance).
+    *   `redis` service (Redis session pub/sub coordination).

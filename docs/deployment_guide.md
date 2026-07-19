@@ -1,7 +1,7 @@
 # Deployment Guide
 ## Chat World v2
 
-This document guides the release of Chat World v2 to production hosting using Docker Compose and Cloudflare Pages.
+This document guides the release of Chat World v2 to production hosting using a single Render Web Service.
 
 ---
 
@@ -22,7 +22,7 @@ This starts:
 
 #### 1.2 Production Dockerfile Strategy
 *   **Backend:** Leverages standard multi-stage builds using a lightweight python alpine runtime image (`python:3.11-alpine`).
-*   **Frontend:** The frontend build command compiles static HTML/JS assets via `npm run build`. In production, these assets are served at edge servers (e.g. Cloudflare Pages) directly, bypassing the need for a persistent Node container.
+*   **Frontend:** The React client compiles static HTML/JS assets via `npm run build`. During deployment, these assets are copied into the `backend/app/static/` directory. The FastAPI backend serves them directly using a catch-all route, eliminating the need for a separate hosting provider.
 
 ---
 
@@ -77,4 +77,4 @@ Make sure these variables are configured in the VPS server's production environm
 *   `DATABASE_URL`: `postgresql+asyncpg://user:pass@host:5432/dbname`
 *   `REDIS_URL`: `redis://:pass@host:6379/0`
 *   `JWT_SECRET_KEY`: Long random string (generated via `openssl rand -hex 32`)
-*   `CORS_ORIGINS`: `["https://domain.com"]`
+*   `CORS_ORIGINS`: `["*"]`

@@ -22,7 +22,7 @@ gantt
     section DevOps
     Docker, Compose Setup       :c1, 2026-08-04, 3d
     CI/CD Workflows             :c2, after c1, 2d
-    Cloudflare Deployments      :c3, after c2, 2d
+    Render Single Deployments      :c3, after c2, 2d
 ```
 
 ---
@@ -76,5 +76,5 @@ This ordered checklist guides the development flow from initial configuration up
     *   Configure `docker-compose.yml` linking Redis, Postgres, and the app.
 *   [ ] **Task 13: Github Actions Workflows (MEDIUM)**
     *   Automate testing on pushes.
-*   [ ] **Task 14: Cloudflare Setup (HARD)**
-    *   Deploy static assets to Cloudflare pages, configuring reverse proxy routing to the backend.
+*   [ ] **Task 14: Unified Render Deployment Setup (EASY)**
+    *   Configure Render blueprint command to compile React client and copy compiled files to FastAPI static app folder.

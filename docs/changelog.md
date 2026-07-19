@@ -11,7 +11,7 @@ This initial pre-release establishes the specifications, architecture blueprints
 
 #### Added
 *   **Software Requirements Specification (srs.md):** Formulating system scopes, modules, functional requirements, and WCAG AA guidelines.
-*   **System Architecture (system_architecture.md):** Defining Clean Architecture layouts, DDD components boundaries, Redis Pub/Sub message propagation pipelines, and Cloudflare reverse proxies.
+*   **System Architecture (system_architecture.md):** Defining Clean Architecture layouts, DDD components boundaries, Redis Pub/Sub message propagation pipelines, and FastAPI static routing.
 *   **Database Specifications (database_erd.md):** Drawing entity relationship diagrams, tables fields type specifications, and configuring SQLAlchemy 2.0 mapped schemas.
 *   **API specifications (api_documentation.md & api_contract.md):** Listing REST endpoints and JSON validation contracts for authentication, room setups, and WebSocket JSON protocols.
 *   **Folder Structure Map (folder_structure.md):** Outlining workspace directory patterns for backend packages, React client layout structures, devops folders, database migrations, and docs.

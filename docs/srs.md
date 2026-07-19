@@ -25,7 +25,7 @@ Chat World v2 is a web-based, mobile-first chat platform that enables real-time 
 ### 2. Overall Description
 
 #### 2.1 Product Perspective
-Chat World v2 is a complete rewrite of the original local socket-based chat application. The application is designed using Clean Architecture and Domain-Driven Design (DDD) principles. It is split into a containerized frontend, backend, and database, deployment-ready on Cloudflare (frontend pages) and any standard cloud host or VPS via Docker Compose.
+Chat World v2 is a complete rewrite of the original local socket-based chat application. The application is designed using Clean Architecture and Domain-Driven Design (DDD) principles. It is split into a containerized frontend, backend, and database, deployment-ready on Render (as a single Web Service serving both frontend and backend) or locally via Docker Compose.
 
 #### 2.2 Product Functions
 *   **User Authentication & Authorization:** Secure signup, login, password hashing, and JWT double-token session management (Access + Refresh tokens).
@@ -43,12 +43,12 @@ Chat World v2 is a complete rewrite of the original local socket-based chat appl
 
 #### 2.4 Design and Implementation Constraints
 *   **Backend Language:** Python 3.11+ using the FastAPI framework following Clean Architecture.
-*   **Frontend Framework:** React 19, TypeScript, and Vite, styled with Tailwind CSS and styled UI libraries.
+*   **Frontend Framework:** React 18.3.1, TypeScript, and Vite, styled with Tailwind CSS and styled UI libraries.
 *   **Database:** PostgreSQL 16+ for production, and SQLite for local development, integrated using SQLAlchemy 2.x and Alembic.
 *   **Caching & Broker:** Redis for caching and WebSocket pub/sub propagation.
 *   **Authentication:** JWT with standard short-lived Access Tokens (stored in memory) and long-lived HTTP-only Cookies for Refresh Tokens.
 *   **Accessibility:** Adherence to WCAG 2.1 AA guidelines (proper contrast ratios, keyboard navigation, screen reader accessibility).
-*   **Deployment:** Fully dockerized (Docker Compose), deployed to Cloudflare Pages (Frontend) and standard VPS (Backend + Database + WS).
+*   **Deployment:** Fully dockerized (Docker Compose), deployed to Render as a unified Web Service serving both React assets and backend API endpoints on a single URL.
 
 ---
 

@@ -8,7 +8,7 @@ This document describes the security protocols, policies, and practices implemen
 ### 1. Cryptographic Safeguards
 
 *   **Password Hashing:** Passwords must be hashed using **bcrypt** with a work factor (salt rounds) of `12` before database persistence. Under no circumstances are raw passwords stored or printed in console logs.
-*   **Transport Security:** In production, SSL/TLS (`HTTPS` and `WSS`) must be enforced globally. All non-secure HTTP requests must redirect automatically to HTTPS at the Cloudflare edge.
+*   **Transport Security:** In production, SSL/TLS (`HTTPS` and `WSS`) must be enforced globally. All non-secure HTTP requests must redirect automatically to HTTPS on Render.
 
 ---
 
@@ -32,7 +32,7 @@ This document describes the security protocols, policies, and practices implemen
 
 #### 3.2 Cross-Site Scripting (XSS)
 *   **Frontend Sanitization:** React automatically escapes values rendered in JSX. Where markdown elements are supported in chats, inputs must parse through a sanitization library (such as `DOMPurify`) before DOM rendering.
-*   **Content Security Policy (CSP):** Cloudflare configured headers restricting script executions to verified domains.
+*   **Content Security Policy (CSP):** FastAPI middleware configured headers restricting script executions to verified domains.
 
 #### 3.3 Rate Limiting
 *   FastAPI endpoints (especially `/auth/login` and `/auth/signup`) must use rate-limiting middlewares (e.g. `slowapi` or Redis-backed rate limit checks) limiting users to `5` login attempts per minute.
