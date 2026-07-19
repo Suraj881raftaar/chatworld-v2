@@ -11,7 +11,7 @@
 | **M2: Security & REST** | JWT access/cookie refresh logic, User CRUD, Channel API endpoints | Pytest suite pass with >=90% code coverage | Day 8 |
 | **M3: Real-Time Engine** | WS endpoint handler, Redis Pub/Sub broadcast coordinator, client status tracking | Multi-node scaling local validation using two node ports bridged with Redis | Day 13 |
 | **M4: Client Core** | React 19 views, Zustand store binding, TanStack Query integrations, Dark/Light modes | Keyboard accessibility (Tab) verification, contrast validations, mock disconnected states | Day 18 |
-| **M5: Deployment** | Docker Compose orchestration, CI pipelines, Render config | Unified local docker compose execution check, staging environment checks | Day 22 |
+| **M5: Deployment** | Docker Compose orchestration, CI pipelines, Cloudflare config | Unified local docker compose execution check, staging environment checks | Day 22 |
 
 ---
 
@@ -26,7 +26,7 @@
 *   Token endpoint `/auth/refresh` must rotate access token correctly while denying expired/revoked cookies.
 
 #### M3: WebSocket Scaling
-*   Test environment spins up two FastAPI processes on port 8000 and 8001 connected to a single Redis container.
+*   Test environment spins up two Hono processes on port 8000 and 8001 connected to a single Redis container.
 *   Connecting client A to node 1 and client B to node 2 must broadcast message exchanges cleanly in real-time.
 
 #### M4: UI/UX & WCAG Checklist

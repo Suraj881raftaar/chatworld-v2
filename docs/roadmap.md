@@ -22,7 +22,7 @@ gantt
     section DevOps
     Docker, Compose Setup       :c1, 2026-08-04, 3d
     CI/CD Workflows             :c2, after c1, 2d
-    Render Single Deployments      :c3, after c2, 2d
+    Cloudflare Single Deployments      :c3, after c2, 2d
 ```
 
 ---
@@ -58,7 +58,7 @@ This ordered checklist guides the development flow from initial configuration up
     *   Develop use cases to list, create, and search chat rooms.
     *   Implement user memberships constraints (join/leave).
 *   [ ] **Task 8: Paginated Chat Logs (MEDIUM)**
-    *   Implement paginated query endpoints in FastAPI (using database cursor keys).
+    *   Implement paginated query endpoints in Hono (using database cursor keys).
     *   Integrate TanStack Query on frontend to scroll load historical logs.
 
 #### Phase D: Real-Time Sockets & Redis Pub/Sub (Est: 6 Days)
@@ -72,9 +72,9 @@ This ordered checklist guides the development flow from initial configuration up
 
 #### Phase E: DevOps & Production Setup (Est: 4 Days)
 *   [ ] **Task 12: Docker Configuration (MEDIUM)**
-    *   Configure production Dockerfiles for React (static server) and FastAPI backend.
+    *   Configure production Dockerfiles for React (static server) and Hono backend.
     *   Configure `docker-compose.yml` linking Redis, Postgres, and the app.
 *   [ ] **Task 13: Github Actions Workflows (MEDIUM)**
     *   Automate testing on pushes.
-*   [ ] **Task 14: Unified Render Deployment Setup (EASY)**
-    *   Configure Render blueprint command to compile React client and copy compiled files to FastAPI static app folder.
+*   [ ] **Task 14: Unified Cloudflare Deployment Setup (EASY)**
+    *   Configure Cloudflare blueprint command to compile React client and copy compiled files to Hono static app folder.

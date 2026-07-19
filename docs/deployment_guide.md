@@ -1,80 +1,65 @@
 # Deployment Guide
-## Chat World v2
+## Chat World v2 (Cloudflare-Native)
 
-This document guides the release of Chat World v2 to production hosting using a single Render Web Service.
-
----
-
-### 1. Local & Production Containerization (Docker Compose)
-
-The application stack uses containerization to ensure identical behavior between local and production machines.
-
-#### 1.1 Local Development Run
-To boot up the complete stack locally:
-```bash
-docker compose -f docker/docker-compose.yml up --build
-```
-This starts:
-1.  **PostgreSQL DB Container:** Accessible at `localhost:5432` mapping files to host volumes.
-2.  **Redis Container:** Stores WebSocket session broker channels.
-3.  **FastAPI Backend Container:** Runs hot-reload FastAPI server mapping port `8000`.
-4.  **Vite Frontend Container:** Runs hot-reload frontend development server at `http://localhost:5173`.
-
-#### 1.2 Production Dockerfile Strategy
-*   **Backend:** Leverages standard multi-stage builds using a lightweight python alpine runtime image (`python:3.11-alpine`).
-*   **Frontend:** The React client compiles static HTML/JS assets via `npm run build`. During deployment, these assets are copied into the `backend/app/static/` directory. The FastAPI backend serves them directly using a catch-all route, eliminating the need for a separate hosting provider.
+This document guides the release of Chat World v2 to production hosting on the Cloudflare Serverless Platform.
 
 ---
 
-### 2. Cloudflare Deployment Architecture
+### 1. Unified Cloudflare Serverless Architecture
 
 ```text
-       +---------------------------------------------+
-       |             CLOUDFLARE EDGE                 |
-       +--------------------+------------------------+
-                            |
-             +--------------+--------------+
-             |                             |
-      (Static Assets)                 (API Routes)
-             |                             |
-             v                             v
-   [ Cloudflare Pages ]           [ Cloudflare Tunnel / DNS ]
-    Serves: index.html                     |
-    JS/CSS bundle                          v
-                                  [ VPS Load Balancer ]
-                                           |
-                                  +--------+--------+
-                                  |                 |
-                                  v                 v
-                              Node A (WS)       Node B (WS)
-                                  \                 /
-                                   +-------+-------+
-                                           | (Pub/Sub)
-                                           v
-                                       [ Redis ]
+       +-------------------------------------------------------+
+       |                    CLOUDFLARE EDGE                    |
+       |                                                       |
+       |  [ Hono Worker API (Single Main Script) ]             |
+       |                                                       |
+       |       /                  --> Serves index.html        |
+       |       /assets/*          --> Serves JS/CSS bundles    |
+       |       /api/v1/*          --> Handles REST endpoints   |
+       |       /api/v1/ws/chat    --> Upgrades to WebSockets   |
+       +----------------------------+--------------------------+
+                                    | (Async Engine / WS)
+                                    v
+                         [ Neon PostgreSQL Database ]
 ```
-
-#### 2.1 Frontend: Cloudflare Pages Setup
-1.  Connect your GitHub repository to **Cloudflare Dashboard > Pages**.
-2.  Set the Build Configuration:
-    *   **Framework Preset:** Vite
-    *   **Build Command:** `npm run build`
-    *   **Build Output Directory:** `dist`
-3.  Set environment variables: `VITE_API_URL` pointing to backend address.
-
-#### 2.2 Routing and Proxy (Cloudflare Rules)
-To prevent CORS preflight delays and domain mismatches:
-*   Configure a **Cloudflare Origin Rule** or **Worker** routing path:
-    *   Requests targeting `domain.com/*` serve Cloudflare Pages static assets.
-    *   Requests targeting `domain.com/api/*` proxy to the VPS backend server at `http://vps-ip:8000/api/*`.
-    *   Requests targeting `domain.com/api/v1/ws/*` upgrade headers and proxy websocket connections to VPS backend at `ws://vps-ip:8000/api/v1/ws/*`.
 
 ---
 
-### 3. Production Environment Checklist
-Make sure these variables are configured in the VPS server's production environment before start:
-*   `ENVIRONMENT`: `production`
-*   `DATABASE_URL`: `postgresql+asyncpg://user:pass@host:5432/dbname`
-*   `REDIS_URL`: `redis://:pass@host:6379/0`
-*   `JWT_SECRET_KEY`: Long random string (generated via `openssl rand -hex 32`)
-*   `CORS_ORIGINS`: `["*"]`
+### 2. Prerequisite Setup
+
+#### 2.1 Neon PostgreSQL
+1. Sign up on [Neon Database](https://neon.tech/) and create a new project.
+2. In the Neon Console, execute the queries inside [schema.sql](file:///E:/suraj/chatworld-v2/backend/src/db/schema.sql) to initialize the database tables.
+3. Copy the database connection URL for step 3.2.
+
+#### 2.2 Cloudflare Wrangler Login
+Authenticate your local command line environment with Cloudflare:
+```bash
+npx wrangler login
+```
+
+---
+
+### 3. Build & Deploy Commands
+
+Deploy the entire React frontend and Workers backend concurrently with:
+```bash
+npm install
+npm run build
+npm run deploy
+```
+
+#### 3.1 Deploy Scripts Mappings
+- **`npm install`:** Installs root workspace dependencies.
+- **`npm run build`:** Compiles the React SPA into `frontend/dist/`.
+- **`npm run deploy`:** Deploys the static assets from `frontend/dist` and mounts the Hono Worker script containing Durable Objects bindings.
+
+#### 3.2 Setting Wrangler Production Secrets
+Run the following commands to securely set database connection strings and JWT token keys inside Cloudflare KV Secrets:
+```bash
+npx wrangler secret put DATABASE_URL
+# Input Neon connection string (e.g. postgresql://alex:pass@ep-cool-123.neon.tech/neondb)
+
+npx wrangler secret put JWT_SECRET
+# Input a random 64-character signing secret key
+```

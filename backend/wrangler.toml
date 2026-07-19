@@ -1,0 +1,23 @@
+name = "chatworld"
+main = "src/index.ts"
+compatibility_date = "2024-04-03"
+
+[assets]
+directory = "../frontend/dist"
+binding = "ASSETS"
+
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ChatRoom"]
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "chatworld-uploads"
+preview_bucket_name = "chatworld-uploads-preview"
+
+[vars]
+ENVIRONMENT = "production"
