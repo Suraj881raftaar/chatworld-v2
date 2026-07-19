@@ -20,6 +20,17 @@ from app.services.chat import manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Safe database schemas initialization
+    from app.infrastructure.database.session import engine
+    from app.infrastructure.database.models import Base
+    from loguru import logger
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            logger.info("Database schemas checked/created successfully (metadata create_all).")
+    except Exception as e:
+        logger.error(f"Error initializing database metadata on startup: {e}")
+
     # Startup actions: connect to Redis Pub/Sub
     await manager.initialize()
     yield
