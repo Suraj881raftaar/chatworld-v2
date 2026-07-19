@@ -88,3 +88,36 @@ docker compose -f docker/docker-compose.yml up --build
 Once initialized, access:
 *   Frontend: `http://localhost:5173`
 *   Backend API Swagger Docs: `http://localhost:8000/docs`
+
+---
+
+## 🚀 Production Deployment & Setup
+
+### 1. 🗄️ Neon PostgreSQL Setup
+1. Sign up on [Neon Database](https://neon.tech/) and create a new project.
+2. In the Neon Console, copy the connection string for your database.
+3. Replace the prefix schema from standard `postgres://` to async-compatible `postgresql+asyncpg://` when setting the connection URL (e.g. `postgresql+asyncpg://alex:pass@ep-cool-water-123.us-east-2.aws.neon.tech/neondb`).
+4. Apply the Alembic migrations against your live Neon database:
+   ```bash
+   alembic upgrade head
+   ```
+
+### 2. 🐍 Render Setup (FastAPI Backend)
+1. Register on [Render](https://render.com/) and connect your GitHub repository.
+2. Create a new **Blueprint** service instance. Render will automatically read the `render.yaml` specification located in the repository root.
+3. Configure the following environment variables on the Render Dashboard:
+   - `DATABASE_URL`: Your async Neon PostgreSQL connection string.
+   - `SECRET_KEY`: A secure random 64-character secret key.
+   - `JWT_SECRET`: A secure key used for signing JWT tokens.
+   - `CORS_ORIGINS`: Allowed origins (e.g. `["https://chatworld-v2.pages.dev"]`).
+4. Click **Deploy**. Render will build and start the web server from the `backend/` directory automatically.
+
+### 3. ☁️ Cloudflare Pages Setup (React Frontend)
+1. Sign up on [Cloudflare Pages](https://pages.cloudflare.com/) and connect your GitHub account.
+2. Create a new Pages Project, and set the root directory of the build to `frontend`.
+3. Configure the following build settings:
+   - **Framework Preset:** None (Vite/React).
+   - **Build Command:** `npm run build`
+   - **Build Output Directory:** `dist`
+4. Deploy the application. The router redirects in `public/_redirects` will automatically proxy all frontend `/api/*` and `/ws/*` calls to your Render backend edge.
+

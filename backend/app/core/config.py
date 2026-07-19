@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     # Security
     SECRET_KEY: str = "super_secret_temporary_key_for_development_purposes_only"
+    JWT_SECRET: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
@@ -19,6 +20,8 @@ class Settings(BaseSettings):
 
     def __init__(self, **values):
         super().__init__(**values)
+        if not self.JWT_SECRET:
+            self.JWT_SECRET = self.SECRET_KEY
         if not self.DATABASE_URL:
             import os
             # Compute project root (three levels up from backend/app/core/config.py)
