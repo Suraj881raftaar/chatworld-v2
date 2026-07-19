@@ -2,7 +2,16 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/api/v1';
+const getWsBaseUrl = () => {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+  const isSecure = window.location.protocol === 'https:';
+  const wsScheme = isSecure ? 'wss:' : 'ws:';
+  return `${wsScheme}//${window.location.host}/api/v1`;
+};
+
+const WS_BASE_URL = getWsBaseUrl();
 
 export function useWebSocket(roomId: string) {
   const queryClient = useQueryClient();

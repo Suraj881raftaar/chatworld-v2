@@ -14,8 +14,18 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Databases
-    DATABASE_URL: str = "sqlite+aiosqlite:///./chatworld.db"
+    DATABASE_URL: str = ""
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    def __init__(self, **values):
+        super().__init__(**values)
+        if not self.DATABASE_URL:
+            import os
+            # Compute project root (three levels up from backend/app/core/config.py)
+            core_dir = os.path.dirname(os.path.abspath(__file__))
+            proj_root = os.path.dirname(os.path.dirname(os.path.dirname(core_dir)))
+            db_path = os.path.join(proj_root, "chatworld.db").replace("\\", "/")
+            self.DATABASE_URL = f"sqlite+aiosqlite:///{db_path}"
 
     # CORS Origins
     CORS_ORIGINS: Union[List[str], str] = ["http://localhost:5173", "http://127.0.0.1:5173"]

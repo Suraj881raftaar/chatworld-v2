@@ -1,3 +1,10 @@
+# Monkeypatch bcrypt for passlib compatibility (prevents AttributeError: module 'bcrypt' has no attribute '__about__')
+import bcrypt
+if not hasattr(bcrypt, "__about__"):
+    class About:
+        __version__ = bcrypt.__version__
+    bcrypt.__about__ = About()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
