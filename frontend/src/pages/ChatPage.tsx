@@ -10,6 +10,19 @@ import {
   Info, Users, User, ArrowLeft, Loader2, Sparkles, FileText 
 } from 'lucide-react';
 
+const getFileUrl = (url: string): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  const apiUrl = import.meta.env.VITE_API_URL || '';
+  if (apiUrl) {
+    const base = apiUrl.replace(/\/api\/v1\/?$/, '');
+    return `${base}${url}`;
+  }
+  return url;
+};
+
 export function ChatPage() {
   const { user, clearAuth } = useAuthStore();
   const { rooms, createRoom, isLoading: isLoadingRooms } = useRooms();
@@ -296,7 +309,7 @@ export function ChatPage() {
                         {msg.message_type === 'image' && msg.file_url ? (
                           <div className="space-y-2">
                             <img
-                              src={msg.file_url.startsWith('/') ? `http://localhost:8000${msg.file_url}` : msg.file_url}
+                              src={getFileUrl(msg.file_url)}
                               alt="Uploaded Attachment"
                               className="max-h-60 rounded-lg object-contain cursor-pointer"
                             />
@@ -304,7 +317,7 @@ export function ChatPage() {
                           </div>
                         ) : msg.message_type === 'file' && msg.file_url ? (
                           <a
-                            href={msg.file_url.startsWith('/') ? `http://localhost:8000${msg.file_url}` : msg.file_url}
+                            href={getFileUrl(msg.file_url)}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 font-medium hover:underline text-xs"

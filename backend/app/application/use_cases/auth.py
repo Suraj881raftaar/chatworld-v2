@@ -68,7 +68,7 @@ class LoginUserUseCase:
         refresh_token = create_refresh_token()
 
         # Save refresh token to DB
-        expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         await self.token_repo.create_token(
             user_id=user.id,
             token=refresh_token,

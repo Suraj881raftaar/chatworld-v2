@@ -12,8 +12,8 @@ class User:
     status_message: str | None = None
     is_active: bool = True
     id: UUID = field(default_factory=uuid4)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     def update_profile(self, username: str | None = None, status_message: str | None = None, avatar_url: str | None = None) -> None:
         if username:
@@ -22,12 +22,12 @@ class User:
             self.status_message = status_message
         if avatar_url is not None:
             self.avatar_url = avatar_url
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     def suspend(self) -> None:
         self.is_active = False
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     def activate(self) -> None:
         self.is_active = True
-        self.updated_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
