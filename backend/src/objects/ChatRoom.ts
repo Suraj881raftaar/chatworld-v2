@@ -19,16 +19,19 @@ export class ChatRoom implements DurableObject {
     const url = new URL(request.url);
     const userId = url.searchParams.get("user_id");
     const username = url.searchParams.get("username");
+    const roomId = url.searchParams.get("room_id");
 
-    if (!userId || !username) {
+    if (!userId || !username || !roomId) {
       return new Response("Missing connection parameters", { status: 400 });
     }
 
     // Create WebSocket pair
-    const [client, server] = Object.values(new WebSocketPair());
+    const pair = new WebSocketPair();
+    const client = pair[0];
+    const server = pair[1];
 
     // Accept WebSocket connection on server side
-    await this.handleSession(server, userId, username);
+    await this.handleSession(server, userId, username, roomId);
 
     return new Response(null, {
       status: 101,
@@ -36,7 +39,7 @@ export class ChatRoom implements DurableObject {
     });
   }
 
-  async handleSession(ws: WebSocket, userId: string, username: string) {
+  async handleSession(ws: WebSocket, userId: string, username: string, roomId: string) {
     // Accept the websocket connection
     // @ts-ignore (Cloudflare Workers native WebSocket api extends standard browser WebSocket)
     ws.accept();
@@ -66,7 +69,7 @@ export class ChatRoom implements DurableObject {
           const messages = await dbQuery<{ id: string; created_at: string }>(
             this.env.DATABASE_URL,
             "INSERT INTO messages (room_id, sender_id, message_type, content, file_url) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at",
-            [this.state.id.toString(), userId, message_type || 'text', content || '', file_url || null]
+            [roomId, userId, message_type || 'text', content || '', file_url || null]
           );
 
           const savedMessage = messages[0];
@@ -76,7 +79,7 @@ export class ChatRoom implements DurableObject {
             event: "new_message",
             data: {
               id: savedMessage.id,
-              room_id: this.state.id.toString(),
+              room_id: roomId,
               sender_id: userId,
               sender_name: username,
               message_type: message_type || 'text',

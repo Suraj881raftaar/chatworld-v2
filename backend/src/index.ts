@@ -37,36 +37,6 @@ app.route('/api/v1/users', usersRouter);
 app.route('/api/v1/rooms', roomsRouter);
 app.route('/api/v1/uploads', uploadsRouter);
 
-// 4. WebSocket Upgrade Endpoint routing to Durable Objects
-app.get('/api/v1/ws/chat', async (c) => {
-  const roomId = c.req.query('room_id');
-  const token = c.req.query('token');
-
-  if (!roomId || !token) {
-    return c.text('Missing room_id or token parameter', 400);
-  }
-
-  // Pre-validate WebSocket JWT Auth
-  try {
-    const payload = await verify(token, c.env.JWT_SECRET);
-    const userId = payload.sub as string;
-    const username = payload.username as string;
-
-    // Get Durable Object Room Stub based on unique Room ID
-    const id = c.env.CHAT_ROOM.idFromName(roomId);
-    const stub = c.env.CHAT_ROOM.get(id);
-
-    // Forward upgraded request to DO with parameters in query string
-    const reqUrl = new URL(c.req.url);
-    reqUrl.searchParams.set("user_id", userId);
-    reqUrl.searchParams.set("username", username);
-
-    return stub.fetch(new Request(reqUrl.toString(), c.req.raw));
-  } catch (err) {
-    return c.text('Unauthorized WebSocket connection', 401);
-  }
-});
-
 // SPA Fallback: Serves index.html for non-file route refreshes
 app.get('/*', async (c) => {
   // If the assets directory exists and wrangler assets binding is present:
@@ -85,4 +55,35 @@ app.get('/*', async (c) => {
   return c.env.ASSETS.fetch(new Request(indexUrl.toString(), c.req.raw));
 });
 
-export default app;
+export default {
+  async fetch(request: Request, env: Bindings, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === '/api/v1/ws/chat') {
+      const roomId = url.searchParams.get('room_id');
+      const token = url.searchParams.get('token');
+
+      if (!roomId || !token) {
+        return new Response('Missing room_id or token parameter', { status: 400 });
+      }
+
+      try {
+        const payload = await verify(token, env.JWT_SECRET);
+        const userId = payload.sub as string;
+        const username = payload.username as string;
+
+        const id = env.CHAT_ROOM.idFromName(roomId);
+        const stub = env.CHAT_ROOM.get(id);
+
+        const reqUrl = new URL(request.url);
+        reqUrl.searchParams.set("user_id", userId);
+        reqUrl.searchParams.set("username", username);
+
+        return stub.fetch(new Request(reqUrl.toString(), request));
+      } catch (err) {
+        return new Response('Unauthorized WebSocket connection', { status: 401 });
+      }
+    }
+
+    return app.fetch(request, env, ctx);
+  }
+};
