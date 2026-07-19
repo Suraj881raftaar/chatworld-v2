@@ -1,0 +1,8 @@
+# Cloudflare Pages Redirects & Reverse Proxy Configuration
+# Redirect /api/* and /ws/* paths to the backend instance dynamically
+
+/api/*  http://vps-backend-ip:8000/api/:splat  200
+/ws/*   ws://vps-backend-ip:8000/ws/:splat   200
+
+# Serve SPA index.html for all other routing requests (React Router handles them)
+/*      /index.html   200
