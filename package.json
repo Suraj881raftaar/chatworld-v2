@@ -1,5 +1,9 @@
 {
-  "dependencies": {
-    "lucide-react": "^1.25.0"
+  "name": "chatworld-v2",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --prefix frontend",
+    "deploy": "npm run deploy --prefix backend"
   }
 }

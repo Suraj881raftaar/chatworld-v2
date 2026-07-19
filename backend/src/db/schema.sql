@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Files Table (Cloudflare R2 metadata tracking)
+-- 7. Files Table (Neon PostgreSQL binary storage)
 CREATE TABLE IF NOT EXISTS files (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     filename VARCHAR(255) NOT NULL,
@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS files (
     content_type VARCHAR(150) NOT NULL,
     size INTEGER NOT NULL,
     uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    data BYTEA NOT NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

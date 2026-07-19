@@ -4,7 +4,6 @@ export type Bindings = {
   DATABASE_URL: string;
   JWT_SECRET: string;
   CHAT_ROOM: DurableObjectNamespace;
-  R2_BUCKET: R2Bucket;
   ASSETS: Fetcher;
   ENVIRONMENT: string;
 };
