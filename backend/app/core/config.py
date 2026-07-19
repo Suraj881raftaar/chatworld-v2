@@ -22,7 +22,12 @@ class Settings(BaseSettings):
         super().__init__(**values)
         if not self.JWT_SECRET:
             self.JWT_SECRET = self.SECRET_KEY
-        if not self.DATABASE_URL:
+        if self.DATABASE_URL:
+            if self.DATABASE_URL.startswith("postgres://"):
+                self.DATABASE_URL = self.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif self.DATABASE_URL.startswith("postgresql://"):
+                self.DATABASE_URL = self.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+        else:
             import os
             # Compute project root (three levels up from backend/app/core/config.py)
             core_dir = os.path.dirname(os.path.abspath(__file__))
