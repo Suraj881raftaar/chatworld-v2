@@ -157,3 +157,6 @@ backend/static/uploads/
 # Agent configuration directory and lock
 .agents/
 skills-lock.json
+
+# Built static assets folder for FastAPI
+backend/app/static/

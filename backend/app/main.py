@@ -48,8 +48,8 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     description="A modern real-time chat application built with Clean Architecture.",
     version="2.0.0",
-    docs_url="/docs" if settings.ENVIRONMENT != "production" else None,
-    redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
     lifespan=lifespan
 )
 
@@ -86,3 +86,12 @@ async def health_check():
         "project": settings.PROJECT_NAME,
         "environment": settings.ENVIRONMENT
     }
+
+from fastapi.responses import FileResponse
+@app.get("/{catchall:path}")
+async def serve_spa(catchall: str):
+    static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
+    file_path = os.path.join(static_dir, catchall)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    return FileResponse(os.path.join(static_dir, "index.html"))
