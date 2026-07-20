@@ -23,6 +23,23 @@ roomsRouter.get('/', async (c) => {
   return c.json(rooms);
 });
 
+// 1b. List public rooms available for discovery
+roomsRouter.get('/public', async (c) => {
+  const user = c.get('user');
+  const rooms = await dbQuery(
+    c.env.DATABASE_URL,
+    `SELECT r.id, r.name, r.description, r.is_private, r.created_by, r.created_at,
+            EXISTS(SELECT 1 FROM room_members rm WHERE rm.room_id = r.id AND rm.user_id = $1) as is_member,
+            (SELECT COUNT(*) FROM room_members rm WHERE rm.room_id = r.id) as member_count
+     FROM rooms r
+     WHERE r.is_private = false
+     ORDER BY r.created_at DESC
+     LIMIT 50`,
+    [user.id]
+  );
+  return c.json(rooms);
+});
+
 // 2. Create room
 roomsRouter.post('/', async (c) => {
   const user = c.get('user');
@@ -57,9 +74,9 @@ roomsRouter.post('/:id/join', async (c) => {
   const user = c.get('user');
   const roomId = c.req.param('id');
 
-  const rooms = await dbQuery(
+  const rooms = await dbQuery<{ id: string; name: string; description: string; is_private: boolean }>(
     c.env.DATABASE_URL,
-    "SELECT id, is_private FROM rooms WHERE id = $1 LIMIT 1",
+    "SELECT id, name, description, is_private FROM rooms WHERE id = $1 LIMIT 1",
     [roomId]
   );
   if (rooms.length === 0) {
@@ -77,18 +94,17 @@ roomsRouter.post('/:id/join', async (c) => {
     "SELECT room_id FROM room_members WHERE room_id = $1 AND user_id = $2",
     [roomId, user.id]
   );
-  if (members.length > 0) {
-    return c.json({ detail: 'Already a member of this room' });
+
+  if (members.length === 0) {
+    // Insert member
+    await dbQuery(
+      c.env.DATABASE_URL,
+      "INSERT INTO room_members (room_id, user_id, role) VALUES ($1, $2, $3)",
+      [roomId, user.id, 'member']
+    );
   }
 
-  // Insert member
-  await dbQuery(
-    c.env.DATABASE_URL,
-    "INSERT INTO room_members (room_id, user_id, role) VALUES ($1, $2, $3)",
-    [roomId, user.id, 'member']
-  );
-
-  return c.json({ detail: 'Joined room successfully' });
+  return c.json(room);
 });
 
 // 4. List members of a room

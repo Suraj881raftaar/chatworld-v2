@@ -9,7 +9,7 @@ export const uploadsRouter = new Hono<{ Bindings: Bindings; Variables: Variables
 uploadsRouter.get('/files/:key', async (c) => {
   const key = c.req.param('key');
   try {
-    const result = await dbQuery<{ filename: string; content_type: string; data: Uint8Array }>(
+    const result = await dbQuery<{ filename: string; content_type: string; data: any }>(
       c.env.DATABASE_URL,
       "SELECT filename, content_type, data FROM files WHERE id = $1 LIMIT 1",
       [key]
@@ -20,10 +20,29 @@ uploadsRouter.get('/files/:key', async (c) => {
     }
 
     const file = result[0];
-    return new Response(file.data, {
+    let binaryData: Uint8Array;
+
+    // Convert PostgreSQL BYTEA hex string representation '\x89504e...' or Uint8Array
+    if (typeof file.data === 'string') {
+      const hex = file.data.startsWith('\\x') ? file.data.slice(2) : file.data;
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+      }
+      binaryData = bytes;
+    } else if (file.data instanceof Uint8Array) {
+      binaryData = file.data;
+    } else if (file.data && typeof file.data === 'object') {
+      binaryData = new Uint8Array(Object.values(file.data));
+    } else {
+      binaryData = new Uint8Array(0);
+    }
+
+    return new Response(binaryData, {
       headers: {
-        'Content-Type': file.content_type,
-        'Content-Disposition': `inline; filename="${encodeURIComponent(file.filename)}"`
+        'Content-Type': file.content_type || 'application/octet-stream',
+        'Content-Disposition': `inline; filename="${encodeURIComponent(file.filename)}"`,
+        'Cache-Control': 'public, max-age=31536000'
       }
     });
   } catch (err) {
@@ -34,7 +53,7 @@ uploadsRouter.get('/files/:key', async (c) => {
 // POST route for uploading files (Auth required)
 uploadsRouter.use('*', authMiddleware);
 
-uploadsRouter.post('/', async (c) => {
+const handleFileUpload = async (c: any) => {
   const user = c.get('user');
   const body = await c.req.parseBody().catch(() => ({}) as any) as any;
   const file = body.file as File | undefined;
@@ -76,4 +95,7 @@ uploadsRouter.post('/', async (c) => {
     file_url: fileUrl,
     content_type: savedFile.content_type
   }, 201);
-});
+};
+
+uploadsRouter.post('/', handleFileUpload);
+uploadsRouter.post('/rooms/:roomId/upload', handleFileUpload);
