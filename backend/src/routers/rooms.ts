@@ -122,7 +122,7 @@ roomsRouter.get('/:id/members', async (c) => {
   return c.json(members);
 });
 
-// 5. Get message history (paginated)
+// 5. Get message history (paginated with reactions)
 roomsRouter.get('/:id/messages', async (c) => {
   const roomId = c.req.param('id');
   const limit = parseInt(c.req.query('limit') || '50');
@@ -130,7 +130,17 @@ roomsRouter.get('/:id/messages', async (c) => {
 
   const messages = await dbQuery(
     c.env.DATABASE_URL,
-    `SELECT m.id, m.room_id, m.sender_id, u.username as sender_name, m.message_type, m.content, m.file_url, m.created_at 
+    `SELECT m.id, m.room_id, m.sender_id, u.username as sender_name, u.avatar_url as sender_avatar, m.message_type, m.content, m.file_url, m.created_at,
+            COALESCE(
+              (SELECT json_agg(json_build_object('emoji', r.emoji, 'count', r.count, 'user_ids', r.user_ids))
+               FROM (
+                 SELECT emoji, COUNT(*)::int as count, ARRAY_AGG(user_id::text) as user_ids
+                 FROM message_reactions
+                 WHERE message_id = m.id
+                 GROUP BY emoji
+               ) r
+              ), '[]'::json
+            ) as reactions
      FROM messages m 
      LEFT JOIN users u ON m.sender_id = u.id 
      WHERE m.room_id = $1 

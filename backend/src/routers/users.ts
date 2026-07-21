@@ -13,7 +13,7 @@ usersRouter.get('/me', async (c) => {
   const user = c.get('user');
   const profiles = await dbQuery(
     c.env.DATABASE_URL,
-    "SELECT id, email, username, role, status_message, avatar_url, created_at FROM users WHERE id = $1 LIMIT 1",
+    "SELECT id, email, username, role, status_message, status_type, bio, avatar_url, created_at FROM users WHERE id = $1 LIMIT 1",
     [user.id]
   );
   if (profiles.length === 0) {
@@ -26,7 +26,7 @@ usersRouter.get('/me', async (c) => {
 usersRouter.put('/me', async (c) => {
   const user = c.get('user');
   const body = await c.req.json().catch(() => ({}));
-  const { status_message, avatar_url, username } = body;
+  const { status_message, status_type, bio, avatar_url, username } = body;
 
   const params: any[] = [];
   const sets: string[] = [];
@@ -34,6 +34,14 @@ usersRouter.put('/me', async (c) => {
   if (status_message !== undefined) {
     params.push(status_message);
     sets.push(`status_message = $${params.length}`);
+  }
+  if (status_type !== undefined) {
+    params.push(status_type);
+    sets.push(`status_type = $${params.length}`);
+  }
+  if (bio !== undefined) {
+    params.push(bio);
+    sets.push(`bio = $${params.length}`);
   }
   if (avatar_url !== undefined) {
     params.push(avatar_url);
@@ -49,7 +57,7 @@ usersRouter.put('/me', async (c) => {
   }
 
   params.push(user.id);
-  const sql = `UPDATE users SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${params.length} RETURNING id, email, username, role, status_message, avatar_url`;
+  const sql = `UPDATE users SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${params.length} RETURNING id, email, username, role, status_message, status_type, bio, avatar_url`;
   const result = await dbQuery(c.env.DATABASE_URL, sql, params);
 
   return c.json(result[0]);

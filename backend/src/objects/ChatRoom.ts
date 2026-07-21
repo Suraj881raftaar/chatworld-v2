@@ -107,6 +107,49 @@ export class ChatRoom implements DurableObject {
               room_id: roomId
             }
           });
+        } else if (msg.event === "toggle_reaction") {
+          const { message_id, emoji } = msg.data;
+          if (message_id && emoji) {
+            // Check if reaction exists
+            const existing = await dbQuery(
+              this.env.DATABASE_URL,
+              "SELECT id FROM message_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3",
+              [message_id, userId, emoji]
+            );
+
+            if (existing.length > 0) {
+              await dbQuery(
+                this.env.DATABASE_URL,
+                "DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3",
+                [message_id, userId, emoji]
+              );
+            } else {
+              await dbQuery(
+                this.env.DATABASE_URL,
+                "INSERT INTO message_reactions (message_id, user_id, emoji) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+                [message_id, userId, emoji]
+              );
+            }
+
+            // Fetch summary of reactions for this message
+            const reactions = await dbQuery<{ emoji: string; count: number; user_ids: string[] }>(
+              this.env.DATABASE_URL,
+              `SELECT emoji, COUNT(*)::int as count, ARRAY_AGG(user_id::text) as user_ids 
+               FROM message_reactions 
+               WHERE message_id = $1 
+               GROUP BY emoji`,
+              [message_id]
+            );
+
+            this.broadcast({
+              event: "reaction_updated",
+              data: {
+                message_id,
+                room_id: roomId,
+                reactions
+              }
+            });
+          }
         }
       } catch (err) {
         console.error("Error handling DO websocket message:", err);
