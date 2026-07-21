@@ -46,6 +46,15 @@ export function useRooms() {
     },
   });
 
+  const updateRoomMutation = useMutation({
+    mutationFn: ({ roomId, data }: { roomId: string; data: { name?: string; description?: string; is_private?: boolean } }) =>
+      chatService.updateRoom(roomId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['public-rooms'] });
+    },
+  });
+
   return {
     rooms: roomsQuery.data || [],
     publicRooms: publicRoomsQuery.data || [],
@@ -56,6 +65,7 @@ export function useRooms() {
     joinRoom: joinRoomMutation.mutateAsync,
     leaveRoom: leaveRoomMutation.mutateAsync,
     deleteRoom: deleteRoomMutation.mutateAsync,
+    updateRoom: updateRoomMutation.mutateAsync,
     isCreating: createRoomMutation.isPending,
     isJoining: joinRoomMutation.isPending,
     isDeleting: deleteRoomMutation.isPending,

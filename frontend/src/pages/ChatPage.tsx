@@ -9,7 +9,7 @@ import {
   LogOut, Hash, Plus, Send, Paperclip, 
   Info, ArrowLeft, Loader2, Sparkles, FileText,
   Compass, Copy, Check, Lock, Globe, Trash2, UserMinus,
-  Search, X, Maximize2, Shield, Camera, Settings
+  Search, X, Maximize2, Shield, Camera, Settings, Edit3
 } from 'lucide-react';
 
 const QUICK_EMOJIS = ['❤️', '👍', '😂', '🔥', '🚀', '🎉', '⚡'];
@@ -36,6 +36,7 @@ export function ChatPage() {
     joinRoom, 
     leaveRoom,
     deleteRoom,
+    updateRoom,
     isLoading: isLoadingRooms,
     isLoadingPublic,
     refetchPublic
@@ -62,6 +63,12 @@ export function ChatPage() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Edit Room Modal State
+  const [isEditRoomModalOpen, setIsEditRoomModalOpen] = useState(false);
+  const [editRoomName, setEditRoomName] = useState('');
+  const [editRoomDesc, setEditRoomDesc] = useState('');
+  const [editRoomPrivate, setEditRoomPrivate] = useState(false);
+
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDiscoverModalOpen, setIsDiscoverModalOpen] = useState(false);
@@ -83,6 +90,10 @@ export function ChatPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<any>(null);
 
+  const isUserAdmin = user?.role === 'admin';
+  const isCurrentRoomOwner = activeRoom?.created_by === user?.id || activeRoom?.role === 'owner';
+  const canManageActiveRoom = isCurrentRoomOwner || isUserAdmin;
+
   // Sync profile modal fields when profile modal opens
   useEffect(() => {
     if (isProfileModalOpen && user) {
@@ -91,6 +102,15 @@ export function ChatPage() {
       setProfileStatusMsg(user.status_message || '');
     }
   }, [isProfileModalOpen, user]);
+
+  // Sync edit room fields
+  useEffect(() => {
+    if (isEditRoomModalOpen && activeRoom) {
+      setEditRoomName(activeRoom.name || '');
+      setEditRoomDesc(activeRoom.description || '');
+      setEditRoomPrivate(!!activeRoom.is_private);
+    }
+  }, [isEditRoomModalOpen, activeRoom]);
 
   // Auto-select first room when rooms list arrives
   useEffect(() => {
@@ -234,6 +254,25 @@ export function ChatPage() {
     }
   };
 
+  const handleSaveEditRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRoomId || !editRoomName.trim()) return;
+
+    try {
+      await updateRoom({
+        roomId: selectedRoomId,
+        data: {
+          name: editRoomName,
+          description: editRoomDesc,
+          is_private: editRoomPrivate
+        }
+      });
+      setIsEditRoomModalOpen(false);
+    } catch (err) {
+      console.error('Failed to update channel:', err);
+    }
+  };
+
   const handleDeleteMessage = async (messageId: string) => {
     try {
       await deleteMessage(messageId);
@@ -326,8 +365,6 @@ export function ChatPage() {
     }
   };
 
-  const isCurrentRoomOwner = activeRoom?.created_by === user?.id || activeRoom?.role === 'owner';
-
   return (
     <div className="h-screen w-full flex bg-background text-foreground overflow-hidden transition-colors duration-300 relative">
       
@@ -357,7 +394,14 @@ export function ChatPage() {
             )}
 
             <div>
-              <span className="block text-sm font-semibold truncate max-w-[120px] group-hover:text-primary transition-colors">{user?.username}</span>
+              <span className="block text-sm font-semibold truncate max-w-[120px] group-hover:text-primary transition-colors flex items-center gap-1">
+                {user?.username}
+                {isUserAdmin && (
+                  <span title="Admin Superuser">
+                    <Shield className="h-3.5 w-3.5 text-warning" />
+                  </span>
+                )}
+              </span>
               <span className="block text-xs text-muted truncate max-w-[120px]">{user?.email}</span>
             </div>
           </div>
@@ -384,7 +428,10 @@ export function ChatPage() {
         {/* Channels action header */}
         <div className="p-4 border-b border-card-border/50 space-y-2">
           <div className="flex items-center justify-between text-muted text-xs font-semibold uppercase tracking-wider">
-            <span>Your Channels ({rooms.length})</span>
+            <span className="flex items-center gap-1.5">
+              <span>Your Channels ({rooms.length})</span>
+              {isUserAdmin && <span className="text-[10px] bg-warning/20 text-warning px-1.5 py-0.5 rounded font-bold">ADMIN MODE</span>}
+            </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => {
@@ -440,6 +487,8 @@ export function ChatPage() {
             <nav className="space-y-1" aria-label="Room navigation list">
               {rooms.map((room: any) => {
                 const isOwner = room.created_by === user?.id || room.role === 'owner';
+                const canDeleteThisRoom = isOwner || isUserAdmin;
+
                 return (
                   <div
                     key={room.id}
@@ -466,7 +515,7 @@ export function ChatPage() {
                     </button>
 
                     <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-                      {isOwner ? (
+                      {canDeleteThisRoom ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -474,7 +523,7 @@ export function ChatPage() {
                             setIsDeleteRoomModalOpen(true);
                           }}
                           className="p-1 rounded hover:bg-error/20 hover:text-error transition-colors cursor-pointer"
-                          title="Delete Channel"
+                          title={isUserAdmin && !isOwner ? "Admin Delete Channel" : "Delete Channel"}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -519,6 +568,17 @@ export function ChatPage() {
                       <Hash className="h-4 w-4 text-primary" />
                       {activeRoom.name}
                     </h2>
+
+                    {canManageActiveRoom && (
+                      <button
+                        onClick={() => setIsEditRoomModalOpen(true)}
+                        className="p-1 rounded hover:bg-card-border/50 text-muted hover:text-primary transition-colors cursor-pointer"
+                        title={isUserAdmin && !isCurrentRoomOwner ? "Admin Edit Channel" : "Edit Channel"}
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
                     <button
                       onClick={handleCopyRoomId}
                       className="p-1 rounded hover:bg-card-border/50 text-muted hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 text-xs"
@@ -554,14 +614,14 @@ export function ChatPage() {
                 <span className={`inline-flex h-2.5 w-2.5 rounded-full ${isConnected ? 'bg-success' : 'bg-warning animate-pulse'}`} />
                 <span className="text-xs text-muted mr-3 hidden sm:inline">{isConnected ? 'connected' : 'connecting'}</span>
                 
-                {isCurrentRoomOwner ? (
+                {canManageActiveRoom ? (
                   <button
                     onClick={() => {
                       setRoomToDelete({ id: activeRoom.id, name: activeRoom.name });
                       setIsDeleteRoomModalOpen(true);
                     }}
                     className="p-2 rounded-lg hover:bg-error/20 text-muted hover:text-error transition-colors cursor-pointer"
-                    title="Delete Channel"
+                    title={isUserAdmin && !isCurrentRoomOwner ? "Admin Delete Channel" : "Delete Channel"}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -634,7 +694,7 @@ export function ChatPage() {
               ) : (
                 filteredMessages.map((msg: any) => {
                   const isSelf = msg.sender_id === user?.id;
-                  const canDeleteMessage = isSelf || isCurrentRoomOwner;
+                  const canDeleteMessage = isSelf || isCurrentRoomOwner || isUserAdmin;
                   const reactions = msg.reactions || [];
 
                   return (
@@ -687,7 +747,7 @@ export function ChatPage() {
                               <button
                                 onClick={() => handleDeleteMessage(msg.id)}
                                 className="p-1 rounded hover:bg-error/20 text-muted hover:text-error transition-all cursor-pointer ml-1"
-                                title="Delete Message"
+                                title={isUserAdmin && !isSelf ? "Admin Delete Message" : "Delete Message"}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </button>
@@ -888,7 +948,7 @@ export function ChatPage() {
           </div>
 
           <div className="pt-4 border-t border-card-border">
-            {isCurrentRoomOwner ? (
+            {canManageActiveRoom ? (
               <button
                 onClick={() => {
                   setRoomToDelete({ id: activeRoom.id, name: activeRoom.name });
@@ -910,6 +970,81 @@ export function ChatPage() {
             )}
           </div>
         </aside>
+      )}
+
+      {/* --- EDIT CHANNEL MODAL --- */}
+      {isEditRoomModalOpen && activeRoom && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md p-6 rounded-2xl glass-panel shadow-2xl relative">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-display font-bold text-foreground flex items-center gap-2">
+                <Edit3 className="h-5 w-5 text-primary" />
+                Edit Channel
+              </h2>
+              <button onClick={() => setIsEditRoomModalOpen(false)} className="text-muted hover:text-foreground text-sm cursor-pointer">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveEditRoom} className="space-y-4">
+              <div>
+                <label htmlFor="edit-name" className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  Channel Name
+                </label>
+                <input
+                  id="edit-name"
+                  type="text"
+                  required
+                  value={editRoomName}
+                  onChange={(e) => setEditRoomName(e.target.value)}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-card-border bg-card-border/20 text-foreground text-sm focus-ring"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-desc" className="block text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+                  Description
+                </label>
+                <textarea
+                  id="edit-desc"
+                  value={editRoomDesc}
+                  onChange={(e) => setEditRoomDesc(e.target.value)}
+                  className="block w-full px-4 py-2.5 rounded-lg border border-card-border bg-card-border/20 text-foreground text-sm focus-ring h-20 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="edit-private"
+                  type="checkbox"
+                  checked={editRoomPrivate}
+                  onChange={(e) => setEditRoomPrivate(e.target.checked)}
+                  className="h-4 w-4 accent-primary rounded border-card-border bg-card-border/20 focus-ring"
+                />
+                <label htmlFor="edit-private" className="text-sm font-medium text-foreground">
+                  Make Private (Invite Only)
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsEditRoomModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-card-border bg-card-border/10 text-foreground hover:bg-card-border/30 text-sm font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!editRoomName.trim()}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 active:scale-[0.99] disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* --- EDIT PROFILE & PHOTO MODAL --- */}

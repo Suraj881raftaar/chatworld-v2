@@ -46,6 +46,11 @@ export const chatService = {
     return response.data;
   },
 
+  async updateRoom(roomId: string, data: { name?: string; description?: string; is_private?: boolean }) {
+    const response = await api.put(`/rooms/${roomId}`, data);
+    return response.data;
+  },
+
   async deleteMessage(roomId: string, messageId: string) {
     const response = await api.delete(`/rooms/${roomId}/messages/${messageId}`);
     return response.data;

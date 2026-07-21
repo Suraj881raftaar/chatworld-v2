@@ -153,12 +153,12 @@ roomsRouter.get('/:id/messages', async (c) => {
   return c.json(messages.reverse());
 });
 
-// 6. Delete room (Owner only)
+// 6. Delete room (Owner or Admin)
 roomsRouter.delete('/:id', async (c) => {
   const user = c.get('user');
   const roomId = c.req.param('id');
 
-  // Check if room exists and if user is creator/owner
+  // Check if room exists
   const rooms = await dbQuery<{ created_by: string }>(
     c.env.DATABASE_URL,
     "SELECT created_by FROM rooms WHERE id = $1 LIMIT 1",
@@ -169,7 +169,7 @@ roomsRouter.delete('/:id', async (c) => {
     return c.json({ error_code: 'NOT_FOUND', detail: 'Room not found' }, 404);
   }
 
-  // Check membership role or creator
+  // Check membership role or creator or system admin
   const members = await dbQuery<{ role: string }>(
     c.env.DATABASE_URL,
     "SELECT role FROM room_members WHERE room_id = $1 AND user_id = $2 LIMIT 1",
@@ -177,8 +177,10 @@ roomsRouter.delete('/:id', async (c) => {
   );
 
   const isOwner = rooms[0].created_by === user.id || (members.length > 0 && members[0].role === 'owner');
-  if (!isOwner) {
-    return c.json({ error_code: 'FORBIDDEN', detail: 'Only the room creator or owner can delete this room' }, 403);
+  const isAdmin = user.role === 'admin';
+
+  if (!isOwner && !isAdmin) {
+    return c.json({ error_code: 'FORBIDDEN', detail: 'Only the room creator or system admin can delete this room' }, 403);
   }
 
   // Delete messages, members, and room in database
@@ -187,6 +189,45 @@ roomsRouter.delete('/:id', async (c) => {
   await dbQuery(c.env.DATABASE_URL, "DELETE FROM rooms WHERE id = $1", [roomId]);
 
   return c.json({ detail: 'Room deleted successfully', id: roomId });
+});
+
+// 6b. Edit room details (Owner or Admin)
+roomsRouter.put('/:id', async (c) => {
+  const user = c.get('user');
+  const roomId = c.req.param('id');
+  const body = await c.req.json().catch(() => ({}));
+  const { name, description, is_private } = body;
+
+  const rooms = await dbQuery<{ created_by: string }>(
+    c.env.DATABASE_URL,
+    "SELECT created_by FROM rooms WHERE id = $1 LIMIT 1",
+    [roomId]
+  );
+
+  if (rooms.length === 0) {
+    return c.json({ error_code: 'NOT_FOUND', detail: 'Room not found' }, 404);
+  }
+
+  const members = await dbQuery<{ role: string }>(
+    c.env.DATABASE_URL,
+    "SELECT role FROM room_members WHERE room_id = $1 AND user_id = $2 LIMIT 1",
+    [roomId, user.id]
+  );
+
+  const isOwner = rooms[0].created_by === user.id || (members.length > 0 && members[0].role === 'owner');
+  const isAdmin = user.role === 'admin';
+
+  if (!isOwner && !isAdmin) {
+    return c.json({ error_code: 'FORBIDDEN', detail: 'Only the room creator or system admin can edit this room' }, 403);
+  }
+
+  const updatedRooms = await dbQuery(
+    c.env.DATABASE_URL,
+    "UPDATE rooms SET name = COALESCE($1, name), description = COALESCE($2, description), is_private = COALESCE($3, is_private), updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING id, name, description, is_private, created_by",
+    [name || null, description !== undefined ? description : null, is_private !== undefined ? is_private : null, roomId]
+  );
+
+  return c.json(updatedRooms[0]);
 });
 
 // 7. Leave room
@@ -203,7 +244,7 @@ roomsRouter.post('/:id/leave', async (c) => {
   return c.json({ detail: 'Left room successfully', id: roomId });
 });
 
-// 8. Delete message (Sender or Room Owner)
+// 8. Delete message (Sender, Room Owner, or System Admin)
 roomsRouter.delete('/:id/messages/:messageId', async (c) => {
   const user = c.get('user');
   const roomId = c.req.param('id');
@@ -222,7 +263,7 @@ roomsRouter.delete('/:id/messages/:messageId', async (c) => {
 
   const message = messages[0];
 
-  // Check if user is room owner
+  // Check if user is room owner or system admin
   const members = await dbQuery<{ role: string }>(
     c.env.DATABASE_URL,
     "SELECT role FROM room_members WHERE room_id = $1 AND user_id = $2 LIMIT 1",
@@ -231,9 +272,10 @@ roomsRouter.delete('/:id/messages/:messageId', async (c) => {
 
   const isSender = message.sender_id === user.id;
   const isOwner = members.length > 0 && members[0].role === 'owner';
+  const isAdmin = user.role === 'admin';
 
-  if (!isSender && !isOwner) {
-    return c.json({ error_code: 'FORBIDDEN', detail: 'You can only delete your own messages' }, 403);
+  if (!isSender && !isOwner && !isAdmin) {
+    return c.json({ error_code: 'FORBIDDEN', detail: 'You do not have permission to delete this message' }, 403);
   }
 
   // Delete message
