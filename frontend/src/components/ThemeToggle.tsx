@@ -5,20 +5,13 @@ export function ThemeToggle() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('theme');
     if (saved === 'light' || saved === 'dark') return saved;
-    // Check system preference
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
-    return 'light';
+    return 'dark'; // Default to ultra-aesthetic Cyber Dark mode
   });
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.setAttribute('data-theme', 'dark');
-      root.style.colorScheme = 'dark';
-    } else {
-      root.removeAttribute('data-theme');
-      root.style.colorScheme = 'light';
-    }
+    root.setAttribute('data-theme', theme);
+    root.style.colorScheme = theme;
     localStorage.setItem('theme', theme);
   }, [theme]);
 
@@ -29,14 +22,14 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-lg hover:bg-card-border/50 text-muted hover:text-foreground focus-ring transition-colors"
+      className="p-2 rounded-xl border border-card-border bg-card-border/10 hover:bg-card-border/30 text-muted hover:text-foreground focus-ring transition-all cursor-pointer"
       aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
       title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
     >
       {theme === 'dark' ? (
-        <Sun className="h-5 w-5" aria-hidden="true" />
+        <Sun className="h-4 w-4 text-warning" aria-hidden="true" />
       ) : (
-        <Moon className="h-5 w-5" aria-hidden="true" />
+        <Moon className="h-4 w-4 text-primary" aria-hidden="true" />
       )}
     </button>
   );
