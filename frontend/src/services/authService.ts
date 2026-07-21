@@ -16,4 +16,14 @@ export const authService = {
     const response = await api.post('/auth/logout');
     return response.data;
   },
+
+  async updateProfile(data: { avatar_url?: string; status_message?: string; status_type?: string; bio?: string; username?: string }) {
+    const response = await api.put('/users/me', data);
+    return response.data;
+  },
+
+  async getProfile() {
+    const response = await api.get('/users/me');
+    return response.data;
+  },
 };

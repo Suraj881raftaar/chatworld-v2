@@ -9,7 +9,7 @@ import {
   LogOut, Hash, Plus, Send, Paperclip, 
   Info, ArrowLeft, Loader2, Sparkles, FileText,
   Compass, Copy, Check, Lock, Globe, Trash2, UserMinus,
-  Search, X, Maximize2, Shield
+  Search, X, Maximize2, Shield, Camera, Settings
 } from 'lucide-react';
 
 const QUICK_EMOJIS = ['❤️', '👍', '😂', '🔥', '🚀', '🎉', '⚡'];
@@ -28,7 +28,7 @@ const getFileUrl = (url: string): string => {
 };
 
 export function ChatPage() {
-  const { user, clearAuth } = useAuthStore();
+  const { user, clearAuth, updateUser } = useAuthStore();
   const { 
     rooms, 
     publicRooms, 
@@ -42,7 +42,7 @@ export function ChatPage() {
   } = useRooms();
   
   const [selectedRoomId, setSelectedRoomId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'sidebar' | 'chat'>('sidebar'); // Mobile navigation helper
+  const [activeTab, setActiveTab] = useState<'sidebar' | 'chat'>('sidebar');
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -54,6 +54,14 @@ export function ChatPage() {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [selectedProfileUser, setSelectedProfileUser] = useState<any | null>(null);
   
+  // Profile Settings Modal State
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
+  const [profileBio, setProfileBio] = useState('');
+  const [profileStatusMsg, setProfileStatusMsg] = useState('');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDiscoverModalOpen, setIsDiscoverModalOpen] = useState(false);
@@ -72,7 +80,17 @@ export function ChatPage() {
   const messageEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<any>(null);
+
+  // Sync profile modal fields when profile modal opens
+  useEffect(() => {
+    if (isProfileModalOpen && user) {
+      setProfileAvatarUrl(user.avatar_url || '');
+      setProfileBio((user as any).bio || '');
+      setProfileStatusMsg(user.status_message || '');
+    }
+  }, [isProfileModalOpen, user]);
 
   // Auto-select first room when rooms list arrives
   useEffect(() => {
@@ -183,6 +201,39 @@ export function ChatPage() {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingAvatar(true);
+      const data = await uploadFile({ file });
+      setProfileAvatarUrl(data.file_url);
+    } catch (err) {
+      console.error('Avatar upload failed:', err);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSavingProfile(true);
+      const updatedUser = await authService.updateProfile({
+        avatar_url: profileAvatarUrl,
+        bio: profileBio,
+        status_message: profileStatusMsg
+      });
+      updateUser(updatedUser);
+      setIsProfileModalOpen(false);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const handleDeleteMessage = async (messageId: string) => {
     try {
       await deleteMessage(messageId);
@@ -290,22 +341,39 @@ export function ChatPage() {
         {/* User profile & Settings header */}
         <header className="p-4 border-b border-card-border flex items-center justify-between">
           <div 
-            onClick={() => setSelectedProfileUser(user)}
+            onClick={() => setIsProfileModalOpen(true)}
             className="flex items-center gap-3 cursor-pointer group"
           >
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md neon-glow group-hover:scale-105 transition-transform">
-              {user?.username[0].toUpperCase()}
-            </div>
+            {user?.avatar_url ? (
+              <img
+                src={getFileUrl(user.avatar_url)}
+                alt="Profile Avatar"
+                className="h-10 w-10 rounded-xl object-cover shadow-md border border-primary/30 group-hover:scale-105 transition-transform"
+              />
+            ) : (
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md neon-glow group-hover:scale-105 transition-transform">
+                {user?.username[0].toUpperCase()}
+              </div>
+            )}
+
             <div>
               <span className="block text-sm font-semibold truncate max-w-[120px] group-hover:text-primary transition-colors">{user?.username}</span>
               <span className="block text-xs text-muted truncate max-w-[120px]">{user?.email}</span>
             </div>
           </div>
+
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsProfileModalOpen(true)}
+              className="p-2 rounded-xl border border-card-border bg-card-border/10 hover:bg-card-border/30 text-muted hover:text-foreground focus-ring transition-all cursor-pointer"
+              title="Edit Profile & Photo"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
             <ThemeToggle />
             <button
               onClick={handleLogout}
-              className="p-2 rounded-lg hover:bg-card-border/50 text-muted hover:text-error transition-colors focus-ring cursor-pointer"
+              className="p-2 rounded-xl border border-card-border bg-card-border/10 hover:bg-error/20 text-muted hover:text-error transition-all focus-ring cursor-pointer"
               aria-label="Logout"
             >
               <LogOut className="h-4 w-4" />
@@ -572,110 +640,130 @@ export function ChatPage() {
                   return (
                     <div
                       key={msg.id || `${msg.sender_id}-${msg.created_at}`}
-                      className={`group flex flex-col ${isSelf ? 'items-end' : 'items-start'} relative`}
+                      className={`group flex items-start gap-2.5 ${isSelf ? 'flex-row-reverse' : 'flex-row'} relative`}
                     >
-                      <div className="text-xs text-muted mb-1 px-1 font-medium flex items-center gap-2">
-                        <button
-                          onClick={() => setSelectedProfileUser({ id: msg.sender_id, username: msg.sender_name })}
-                          className="hover:text-primary hover:underline transition-colors cursor-pointer"
-                        >
-                          {msg.sender_name || 'User'}
-                        </button>
-                      </div>
-                      
-                      <div className="relative max-w-[75%] flex flex-col items-start group">
-                        {/* Hover Action Bar */}
-                        <div className={`absolute -top-7 ${isSelf ? 'left-0' : 'right-0'} opacity-0 group-hover:opacity-100 flex items-center gap-1 bg-card border border-card-border p-1 rounded-lg shadow-lg z-10 transition-opacity`}>
-                          {QUICK_EMOJIS.map((emoji) => (
-                            <button
-                              key={emoji}
-                              onClick={() => handleToggleEmojiReaction(msg.id, emoji)}
-                              className="hover:scale-125 transition-transform text-xs p-0.5 cursor-pointer"
-                              title={`React ${emoji}`}
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                          {canDeleteMessage && (
-                            <button
-                              onClick={() => handleDeleteMessage(msg.id)}
-                              className="p-1 rounded hover:bg-error/20 text-muted hover:text-error transition-all cursor-pointer ml-1"
-                              title="Delete Message"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Message content box */}
-                        <div className={`rounded-2xl px-4 py-2.5 text-sm shadow-md ${
-                          isSelf 
-                            ? 'bg-primary text-primary-foreground rounded-tr-none' 
-                            : 'bg-card border border-card-border text-foreground rounded-tl-none'
-                        }`}>
-                          {msg.message_type === 'image' && msg.file_url ? (
-                            <div className="space-y-2">
-                              <div className="relative group/img">
-                                <img
-                                  src={getFileUrl(msg.file_url)}
-                                  alt="Attachment"
-                                  onClick={() => setPreviewImageUrl(getFileUrl(msg.file_url))}
-                                  className="max-h-64 rounded-lg object-contain cursor-pointer hover:opacity-95 transition-opacity"
-                                />
-                                <button
-                                  onClick={() => setPreviewImageUrl(getFileUrl(msg.file_url))}
-                                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white opacity-0 group-hover/img:opacity-100 transition-opacity cursor-pointer"
-                                  title="Enlarge Image"
-                                >
-                                  <Maximize2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                              {msg.content && msg.content !== 'Attachment' && (
-                                <p className="text-xs opacity-90">{msg.content}</p>
-                              )}
-                            </div>
-                          ) : msg.message_type === 'file' && msg.file_url ? (
-                            <a
-                              href={getFileUrl(msg.file_url)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 font-medium hover:underline text-xs"
-                            >
-                              <FileText className="h-4 w-4 flex-shrink-0" />
-                              <span className="break-all">{msg.content || 'Download Attachment'}</span>
-                            </a>
-                          ) : (
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
-                          )}
-                        </div>
-
-                        {/* Emoji Reactions List Bar */}
-                        {reactions.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5 px-1">
-                            {reactions.map((r: any) => {
-                              const hasReacted = r.user_ids?.includes(user?.id);
-                              return (
-                                <button
-                                  key={r.emoji}
-                                  onClick={() => handleToggleEmojiReaction(msg.id, r.emoji)}
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-                                    hasReacted
-                                      ? 'bg-primary/20 border-primary text-primary'
-                                      : 'bg-card/60 border-card-border text-muted hover:border-foreground/30'
-                                  }`}
-                                >
-                                  <span>{r.emoji}</span>
-                                  <span className="text-[10px]">{r.count}</span>
-                                </button>
-                              );
-                            })}
+                      {/* User Avatar */}
+                      <div 
+                        onClick={() => setSelectedProfileUser({ id: msg.sender_id, username: msg.sender_name, avatar_url: msg.sender_avatar })}
+                        className="cursor-pointer group/avatar flex-shrink-0"
+                      >
+                        {msg.sender_avatar ? (
+                          <img
+                            src={getFileUrl(msg.sender_avatar)}
+                            alt="Avatar"
+                            className="h-8 w-8 rounded-lg object-cover shadow-sm group-hover/avatar:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-lg bg-primary/20 text-primary border border-primary/30 flex items-center justify-center text-xs font-bold shadow-sm group-hover/avatar:scale-105 transition-transform">
+                            {msg.sender_name?.[0]?.toUpperCase() || 'U'}
                           </div>
                         )}
                       </div>
 
-                      <span className="text-[10px] text-muted mt-0.5 px-1">
-                        {new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <div className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                        <div className="text-[11px] text-muted mb-1 px-1 font-medium flex items-center gap-2">
+                          <button
+                            onClick={() => setSelectedProfileUser({ id: msg.sender_id, username: msg.sender_name, avatar_url: msg.sender_avatar })}
+                            className="hover:text-primary hover:underline transition-colors cursor-pointer"
+                          >
+                            {msg.sender_name || 'User'}
+                          </button>
+                        </div>
+                        
+                        <div className="relative group">
+                          {/* Hover Action Bar */}
+                          <div className={`absolute -top-7 ${isSelf ? 'left-0' : 'right-0'} opacity-0 group-hover:opacity-100 flex items-center gap-1 bg-card border border-card-border p-1 rounded-lg shadow-lg z-10 transition-opacity`}>
+                            {QUICK_EMOJIS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => handleToggleEmojiReaction(msg.id, emoji)}
+                                className="hover:scale-125 transition-transform text-xs p-0.5 cursor-pointer"
+                                title={`React ${emoji}`}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                            {canDeleteMessage && (
+                              <button
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                className="p-1 rounded hover:bg-error/20 text-muted hover:text-error transition-all cursor-pointer ml-1"
+                                title="Delete Message"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Message content box */}
+                          <div className={`rounded-2xl px-4 py-2.5 text-sm shadow-md ${
+                            isSelf 
+                              ? 'bg-primary text-primary-foreground rounded-tr-none' 
+                              : 'bg-card border border-card-border text-foreground rounded-tl-none'
+                          }`}>
+                            {msg.message_type === 'image' && msg.file_url ? (
+                              <div className="space-y-2">
+                                <div className="relative group/img">
+                                  <img
+                                    src={getFileUrl(msg.file_url)}
+                                    alt="Attachment"
+                                    onClick={() => setPreviewImageUrl(getFileUrl(msg.file_url))}
+                                    className="max-h-64 rounded-lg object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                  />
+                                  <button
+                                    onClick={() => setPreviewImageUrl(getFileUrl(msg.file_url))}
+                                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white opacity-0 group-hover/img:opacity-100 transition-opacity cursor-pointer"
+                                    title="Enlarge Image"
+                                  >
+                                    <Maximize2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                                {msg.content && msg.content !== 'Attachment' && (
+                                  <p className="text-xs opacity-90">{msg.content}</p>
+                                )}
+                              </div>
+                            ) : msg.message_type === 'file' && msg.file_url ? (
+                              <a
+                                href={getFileUrl(msg.file_url)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 font-medium hover:underline text-xs"
+                              >
+                                <FileText className="h-4 w-4 flex-shrink-0" />
+                                <span className="break-all">{msg.content || 'Download Attachment'}</span>
+                              </a>
+                            ) : (
+                              <p className="whitespace-pre-wrap">{msg.content}</p>
+                            )}
+                          </div>
+
+                          {/* Emoji Reactions List Bar */}
+                          {reactions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5 px-1">
+                              {reactions.map((r: any) => {
+                                const hasReacted = r.user_ids?.includes(user?.id);
+                                return (
+                                  <button
+                                    key={r.emoji}
+                                    onClick={() => handleToggleEmojiReaction(msg.id, r.emoji)}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                                      hasReacted
+                                        ? 'bg-primary/20 border-primary text-primary'
+                                        : 'bg-card/60 border-card-border text-muted hover:border-foreground/30'
+                                    }`}
+                                  >
+                                    <span>{r.emoji}</span>
+                                    <span className="text-[10px]">{r.count}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        <span className="text-[10px] text-muted mt-0.5 px-1">
+                          {new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
                     </div>
                   );
                 })
@@ -824,6 +912,117 @@ export function ChatPage() {
         </aside>
       )}
 
+      {/* --- EDIT PROFILE & PHOTO MODAL --- */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+          <div className="w-full max-w-md p-6 rounded-3xl glass-panel shadow-2xl relative border border-white/10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-display font-bold text-foreground flex items-center gap-2">
+                <Settings className="h-5 w-5 text-primary" />
+                Edit Profile & Photo
+              </h2>
+              <button
+                onClick={() => setIsProfileModalOpen(false)}
+                className="text-muted hover:text-foreground text-sm cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProfile} className="space-y-4">
+              {/* Profile Photo Upload Section */}
+              <div className="flex flex-col items-center justify-center my-4">
+                <div className="relative group/avatar cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
+                  {profileAvatarUrl ? (
+                    <img
+                      src={getFileUrl(profileAvatarUrl)}
+                      alt="Avatar Preview"
+                      className="h-24 w-24 rounded-2xl object-cover border-2 border-primary shadow-xl"
+                    />
+                  ) : (
+                    <div className="h-24 w-24 rounded-2xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-3xl flex items-center justify-center shadow-xl neon-glow">
+                      {user?.username?.[0]?.toUpperCase()}
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover/avatar:opacity-100 flex flex-col items-center justify-center text-white transition-opacity">
+                    {isUploadingAvatar ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <>
+                        <Camera className="h-6 w-6" />
+                        <span className="text-[10px] font-semibold mt-1">Change</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <input
+                  type="file"
+                  ref={avatarInputRef}
+                  onChange={handleAvatarUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={isUploadingAvatar}
+                  className="mt-3 px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  {isUploadingAvatar ? 'Uploading...' : 'Upload Profile Photo'}
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1">
+                  Status Statement
+                </label>
+                <input
+                  type="text"
+                  value={profileStatusMsg}
+                  onChange={(e) => setProfileStatusMsg(e.target.value)}
+                  placeholder="e.g. Coding something awesome..."
+                  className="block w-full px-4 py-2.5 rounded-xl border border-card-border bg-card-border/10 text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm focus-ring"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted uppercase tracking-wider mb-1">
+                  Bio / About Me
+                </label>
+                <textarea
+                  value={profileBio}
+                  onChange={(e) => setProfileBio(e.target.value)}
+                  placeholder="Tell others a bit about yourself..."
+                  className="block w-full px-4 py-2.5 rounded-xl border border-card-border bg-card-border/10 text-foreground placeholder:text-muted/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm focus-ring h-20 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6 pt-2 border-t border-card-border">
+                <button
+                  type="button"
+                  onClick={() => setIsProfileModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-card-border bg-card-border/10 text-foreground hover:bg-card-border/30 text-sm font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProfile || isUploadingAvatar}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold text-sm hover:opacity-90 active:scale-[0.99] disabled:opacity-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-lg neon-glow"
+                >
+                  {isSavingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  <span>Save Profile</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* --- DISCOVER PUBLIC CHANNELS MODAL --- */}
       {isDiscoverModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
@@ -909,7 +1108,7 @@ export function ChatPage() {
       {/* --- USER PROFILE MODAL --- */}
       {selectedProfileUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm p-6 rounded-2xl glass-panel shadow-2xl relative text-center">
+          <div className="w-full max-w-sm p-6 rounded-3xl glass-panel shadow-2xl relative text-center border border-white/10">
             <button
               onClick={() => setSelectedProfileUser(null)}
               className="absolute top-4 right-4 text-muted hover:text-foreground cursor-pointer"
@@ -917,9 +1116,17 @@ export function ChatPage() {
               <X className="h-5 w-5" />
             </button>
 
-            <div className="h-20 w-20 rounded-2xl bg-primary text-primary-foreground font-bold text-3xl flex items-center justify-center mx-auto mb-3 shadow-lg">
-              {selectedProfileUser.username?.[0]?.toUpperCase() || 'U'}
-            </div>
+            {selectedProfileUser.avatar_url ? (
+              <img
+                src={getFileUrl(selectedProfileUser.avatar_url)}
+                alt="Profile Avatar"
+                className="h-24 w-24 rounded-2xl object-cover border-2 border-primary mx-auto mb-3 shadow-xl"
+              />
+            ) : (
+              <div className="h-20 w-20 rounded-2xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white font-bold text-3xl flex items-center justify-center mx-auto mb-3 shadow-lg neon-glow">
+                {selectedProfileUser.username?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
 
             <h3 className="text-lg font-bold text-foreground flex items-center justify-center gap-1.5">
               {selectedProfileUser.username}
@@ -945,7 +1152,7 @@ export function ChatPage() {
 
             <button
               onClick={() => setSelectedProfileUser(null)}
-              className="mt-6 w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-xs hover:opacity-90 cursor-pointer"
+              className="mt-6 w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:opacity-90 cursor-pointer shadow-md"
             >
               Close Profile
             </button>
