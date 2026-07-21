@@ -59,13 +59,27 @@ export function useWebSocket(roomId: string) {
           queryClient.setQueryData(
             ['messages', roomId],
             (oldData: any) => {
-              if (!oldData) return oldData;
+              if (!oldData) {
+                return {
+                  pages: [[data]],
+                  pageParams: [null],
+                };
+              }
               
               // In InfiniteQuery, data is structured as pages: { pages: [...], pageParams: [...] }
-              // Since messages are chronological (oldest to newest), we append new messages to the last page.
+              // Prevent duplicate items
+              const exists = oldData.pages?.some((page: any[]) =>
+                page.some((m: any) => m.id === data.id)
+              );
+              if (exists) return oldData;
+
               const updatedPages = [...oldData.pages];
               const lastPageIndex = updatedPages.length - 1;
-              updatedPages[lastPageIndex] = [...updatedPages[lastPageIndex], data];
+              if (lastPageIndex >= 0) {
+                updatedPages[lastPageIndex] = [...updatedPages[lastPageIndex], data];
+              } else {
+                updatedPages.push([data]);
+              }
 
               return {
                 ...oldData,
@@ -73,7 +87,7 @@ export function useWebSocket(roomId: string) {
               };
             }
           );
-        } else if (eventName === 'user_typing') {
+        } else if (eventName === 'typing' || eventName === 'user_typing') {
           const { user_id, username, is_typing } = data;
           setTypingUsers((prev) => {
             const updated = { ...prev };
@@ -84,6 +98,39 @@ export function useWebSocket(roomId: string) {
             }
             return updated;
           });
+        } else if (eventName === 'message_deleted') {
+          const { message_id } = data;
+          queryClient.setQueryData(
+            ['messages', roomId],
+            (oldData: any) => {
+              if (!oldData) return oldData;
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page: any[]) =>
+                  page.filter((msg: any) => msg.id !== message_id)
+                ),
+              };
+            }
+          );
+        } else if (eventName === 'reaction_updated') {
+          const { message_id, reactions } = data;
+          queryClient.setQueryData(
+            ['messages', roomId],
+            (oldData: any) => {
+              if (!oldData) return oldData;
+              return {
+                ...oldData,
+                pages: oldData.pages.map((page: any[]) =>
+                  page.map((msg: any) =>
+                    msg.id === message_id ? { ...msg, reactions } : msg
+                  )
+                ),
+              };
+            }
+          );
+        } else if (eventName === 'room_deleted') {
+          queryClient.invalidateQueries({ queryKey: ['rooms'] });
+          queryClient.invalidateQueries({ queryKey: ['public-rooms'] });
         }
       } catch (err) {
         console.error('Error parsing WS message payload:', err);
@@ -155,11 +202,40 @@ export function useWebSocket(roomId: string) {
     }
   }, []);
 
+  const sendDeleteMessage = useCallback((messageId: string) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(
+        JSON.stringify({
+          event: 'delete_message',
+          data: {
+            message_id: messageId,
+          },
+        })
+      );
+    }
+  }, []);
+
+  const sendToggleReaction = useCallback((messageId: string, emoji: string) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(
+        JSON.stringify({
+          event: 'toggle_reaction',
+          data: {
+            message_id: messageId,
+            emoji: emoji,
+          },
+        })
+      );
+    }
+  }, []);
+
   return {
     isConnected,
     typingUsers,
     sendMessage,
     sendTypingStatus,
+    sendDeleteMessage,
+    sendToggleReaction,
   };
 }
 

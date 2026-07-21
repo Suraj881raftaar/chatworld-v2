@@ -12,6 +12,11 @@ export const chatService = {
     return response.data;
   },
 
+  async getPublicRooms() {
+    const response = await api.get('/rooms/public');
+    return response.data;
+  },
+
   async createRoom(data: RoomCreateData) {
     const response = await api.post('/rooms', data);
     return response.data;
@@ -30,16 +35,26 @@ export const chatService = {
   async getMessages(roomId: string, limit = 50, before: string | null = null) {
     const params: Record<string, any> = { limit };
     if (before) {
-      params.before = before;
+      params.offset = before;
     }
     const response = await api.get(`/rooms/${roomId}/messages`, { params });
     return response.data;
   },
 
-  async uploadFile(roomId: string, file: File) {
+  async deleteRoom(roomId: string) {
+    const response = await api.delete(`/rooms/${roomId}`);
+    return response.data;
+  },
+
+  async deleteMessage(roomId: string, messageId: string) {
+    const response = await api.delete(`/rooms/${roomId}/messages/${messageId}`);
+    return response.data;
+  },
+
+  async uploadFile(file: File) {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.post(`/rooms/${roomId}/upload`, formData, {
+    const response = await api.post('/uploads', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

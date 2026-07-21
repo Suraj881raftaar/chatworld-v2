@@ -1,7 +1,8 @@
-import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { chatService } from '../services/chatService';
 
 export function useMessages(roomId: string) {
+  const queryClient = useQueryClient();
 
   const messagesQuery = useInfiniteQuery({
     queryKey: ['messages', roomId],
@@ -9,9 +10,6 @@ export function useMessages(roomId: string) {
       chatService.getMessages(roomId, 50, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => {
-      // In the array of messages returned (sorted chronologically: oldest to newest),
-      // the first element (index 0) represents the oldest loaded item in this batch.
-      // We pass its ID as the cursor to query earlier history.
       if (lastPage && lastPage.length > 0) {
         return lastPage[0].id;
       }
@@ -21,7 +19,26 @@ export function useMessages(roomId: string) {
   });
 
   const uploadMutation = useMutation({
-    mutationFn: ({ file }: { file: File }) => chatService.uploadFile(roomId, file),
+    mutationFn: ({ file }: { file: File }) => chatService.uploadFile(file),
+  });
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: (messageId: string) => chatService.deleteMessage(roomId, messageId),
+    onSuccess: (_, messageId) => {
+      // Remove message from TanStack Query cache
+      queryClient.setQueryData(
+        ['messages', roomId],
+        (oldData: any) => {
+          if (!oldData) return oldData;
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page: any[]) =>
+              page.filter((msg: any) => msg.id !== messageId)
+            ),
+          };
+        }
+      );
+    },
   });
 
   return {
@@ -32,6 +49,7 @@ export function useMessages(roomId: string) {
     isLoading: messagesQuery.isLoading,
     isError: messagesQuery.isError,
     uploadFile: uploadMutation.mutateAsync,
+    deleteMessage: deleteMessageMutation.mutateAsync,
     isUploading: uploadMutation.isPending,
   };
 }
