@@ -98,6 +98,15 @@ export class ChatRoom implements DurableObject {
               is_typing: !!is_typing
             }
           }, ws); // Exclude the typing sender from seeing their own indicator
+        } else if (msg.event === "delete_message") {
+          const { message_id } = msg.data;
+          this.broadcast({
+            event: "message_deleted",
+            data: {
+              message_id: message_id,
+              room_id: roomId
+            }
+          });
         }
       } catch (err) {
         console.error("Error handling DO websocket message:", err);

@@ -142,3 +142,100 @@ roomsRouter.get('/:id/messages', async (c) => {
   // Return reversed to chronological order for UI display
   return c.json(messages.reverse());
 });
+
+// 6. Delete room (Owner only)
+roomsRouter.delete('/:id', async (c) => {
+  const user = c.get('user');
+  const roomId = c.req.param('id');
+
+  // Check if room exists and if user is creator/owner
+  const rooms = await dbQuery<{ created_by: string }>(
+    c.env.DATABASE_URL,
+    "SELECT created_by FROM rooms WHERE id = $1 LIMIT 1",
+    [roomId]
+  );
+
+  if (rooms.length === 0) {
+    return c.json({ error_code: 'NOT_FOUND', detail: 'Room not found' }, 404);
+  }
+
+  // Check membership role or creator
+  const members = await dbQuery<{ role: string }>(
+    c.env.DATABASE_URL,
+    "SELECT role FROM room_members WHERE room_id = $1 AND user_id = $2 LIMIT 1",
+    [roomId, user.id]
+  );
+
+  const isOwner = rooms[0].created_by === user.id || (members.length > 0 && members[0].role === 'owner');
+  if (!isOwner) {
+    return c.json({ error_code: 'FORBIDDEN', detail: 'Only the room creator or owner can delete this room' }, 403);
+  }
+
+  // Delete messages, members, and room in database
+  await dbQuery(c.env.DATABASE_URL, "DELETE FROM messages WHERE room_id = $1", [roomId]);
+  await dbQuery(c.env.DATABASE_URL, "DELETE FROM room_members WHERE room_id = $1", [roomId]);
+  await dbQuery(c.env.DATABASE_URL, "DELETE FROM rooms WHERE id = $1", [roomId]);
+
+  return c.json({ detail: 'Room deleted successfully', id: roomId });
+});
+
+// 7. Leave room
+roomsRouter.post('/:id/leave', async (c) => {
+  const user = c.get('user');
+  const roomId = c.req.param('id');
+
+  await dbQuery(
+    c.env.DATABASE_URL,
+    "DELETE FROM room_members WHERE room_id = $1 AND user_id = $2",
+    [roomId, user.id]
+  );
+
+  return c.json({ detail: 'Left room successfully', id: roomId });
+});
+
+// 8. Delete message (Sender or Room Owner)
+roomsRouter.delete('/:id/messages/:messageId', async (c) => {
+  const user = c.get('user');
+  const roomId = c.req.param('id');
+  const messageId = c.req.param('messageId');
+
+  // Find message
+  const messages = await dbQuery<{ sender_id: string; file_url: string }>(
+    c.env.DATABASE_URL,
+    "SELECT sender_id, file_url FROM messages WHERE id = $1 AND room_id = $2 LIMIT 1",
+    [messageId, roomId]
+  );
+
+  if (messages.length === 0) {
+    return c.json({ error_code: 'NOT_FOUND', detail: 'Message not found' }, 404);
+  }
+
+  const message = messages[0];
+
+  // Check if user is room owner
+  const members = await dbQuery<{ role: string }>(
+    c.env.DATABASE_URL,
+    "SELECT role FROM room_members WHERE room_id = $1 AND user_id = $2 LIMIT 1",
+    [roomId, user.id]
+  );
+
+  const isSender = message.sender_id === user.id;
+  const isOwner = members.length > 0 && members[0].role === 'owner';
+
+  if (!isSender && !isOwner) {
+    return c.json({ error_code: 'FORBIDDEN', detail: 'You can only delete your own messages' }, 403);
+  }
+
+  // Delete message
+  await dbQuery(c.env.DATABASE_URL, "DELETE FROM messages WHERE id = $1", [messageId]);
+
+  // Clean up file if present
+  if (message.file_url && message.file_url.includes('/files/')) {
+    const fileId = message.file_url.split('/files/').pop();
+    if (fileId) {
+      await dbQuery(c.env.DATABASE_URL, "DELETE FROM files WHERE id = $1", [fileId]).catch(() => {});
+    }
+  }
+
+  return c.json({ detail: 'Message deleted successfully', message_id: messageId, room_id: roomId });
+});
